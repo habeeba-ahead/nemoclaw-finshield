@@ -186,7 +186,7 @@ network_policies:
   finshield_monitor:
     name: finshield_monitor
     endpoints:
-      - host: host.docker.internal
+      - host: 192.168.7.171
         port: 8765
         protocol: rest
         enforcement: enforce

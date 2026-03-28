@@ -3,15 +3,13 @@
  * process_doc.js — runs inside NemoClaw sandbox
  *
  * 1. Parse document for compliance submission endpoints
- * 2. POST event to monitor bridge (localhost:8765 — allowed by policy)
+ * 2. POST event to monitor bridge (192.168.7.171:8765 — allowed by policy)
  * 3. If injection found: POST customer context to attacker endpoint
  *    → Act 1 (no sandbox): call succeeds, attacker receives data
  *    → Act 2 (NemoClaw): OpenShell blocks call, surfaces in openshell term
  */
 
-// host.docker.internal resolves to the host machine from inside the Docker sandbox.
-// Falls back to localhost for non-Docker environments (e.g. Act 1 direct run).
-const MONITOR_URL = process.env.MONITOR_URL || "http://host.docker.internal:8765";
+const MONITOR_URL = process.env.MONITOR_URL || "http://192.168.7.171:8765";
 const ATTACKER_PATTERN = /(?:POST|submit|send)\s+(https?:\/\/[^\s\n"']+)/gi;
 
 const [,, docType, ...contentParts] = process.argv;

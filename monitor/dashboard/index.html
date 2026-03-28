@@ -571,8 +571,8 @@
     };
 
     ws.onerror = () => {
-      liveDot.style.background = 'var(--red)';
-      liveText.textContent = 'Disconnected';
+      liveDot.style.background = 'var(--amber)';
+      liveText.textContent = 'Reconnecting...';
     };
 
     ws.onmessage = (msg) => {
