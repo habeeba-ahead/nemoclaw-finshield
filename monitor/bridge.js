@@ -12,10 +12,30 @@ const http = require("http");
 const fs   = require("fs");
 const path = require("path");
 
-const PORT      = 8765;
-const DASHBOARD = path.join(__dirname, "dashboard", "index.html");
+const PORT        = 8765;
+const DASHBOARD   = path.join(__dirname, "dashboard", "index.html");
+const EVENTS_FILE = "/tmp/finshield-events.jsonl";
 
 const sseClients = new Set();
+
+// Poll event file written by process_doc.js — avoids all network between processes
+let filePos = 0;
+setInterval(() => {
+    try {
+        const size = fs.statSync(EVENTS_FILE).size;
+        if (size < filePos) filePos = 0; // file was recreated
+        if (size > filePos) {
+            const buf = Buffer.alloc(size - filePos);
+            const fd  = fs.openSync(EVENTS_FILE, "r");
+            fs.readSync(fd, buf, 0, buf.length, filePos);
+            fs.closeSync(fd);
+            filePos = size;
+            buf.toString().split("\n").filter(Boolean).forEach(line => {
+                try { broadcast(JSON.parse(line)); } catch (_) {}
+            });
+        }
+    } catch (_) {}
+}, 200);
 
 function broadcast(data) {
     const msg = `data: ${JSON.stringify(data)}\n\n`;

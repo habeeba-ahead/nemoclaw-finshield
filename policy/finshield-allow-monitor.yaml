@@ -186,7 +186,7 @@ network_policies:
   finshield_monitor:
     name: finshield_monitor
     endpoints:
-      - host: 192.168.7.171
+      - host: host.openshell.internal
         port: 8765
         protocol: rest
         enforcement: enforce
