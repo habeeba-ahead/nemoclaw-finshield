@@ -1,7 +1,7 @@
 # FinShield policy extension — adds monitor bridge endpoint
 # Apply with: openshell policy set policy/finshield-allow-monitor.yaml
 
-network:
+network_policies:
   - name: finshield_monitor
     endpoints:
       - "localhost:8765"
