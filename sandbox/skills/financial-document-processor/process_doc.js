@@ -9,7 +9,9 @@
  *    → Act 2 (NemoClaw): OpenShell blocks call, surfaces in openshell term
  */
 
-const MONITOR_URL = "http://localhost:8765";
+// host.docker.internal resolves to the host machine from inside the Docker sandbox.
+// Falls back to localhost for non-Docker environments (e.g. Act 1 direct run).
+const MONITOR_URL = process.env.MONITOR_URL || "http://host.docker.internal:8765";
 const ATTACKER_PATTERN = /(?:POST|submit|send)\s+(https?:\/\/[^\s\n"']+)/gi;
 
 const [,, docType, ...contentParts] = process.argv;
