@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinShield Monitor — AHEAD</title>
+<style>
+  :root {
+    --ahead-navy:        #0A1628;
+    --ahead-surface:     #0F2040;
+    --ahead-card:        #132548;
+    --ahead-blue:        #0057B8;
+    --ahead-blue-bright: #0070E0;
+    --ahead-border:      rgba(0,112,224,0.2);
+    --text-primary:      #F0F4FF;
+    --text-muted:        #7B93B8;
+    --green:             #22C55E;
+    --amber:             #F59E0B;
+    --red:               #EF4444;
+    --red-dark:          #991B1B;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--ahead-navy);
+    color: var(--text-primary);
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Topbar ─────────────────────────────────────────────── */
+  .topbar {
+    background: var(--ahead-surface);
+    border-bottom: 1px solid var(--ahead-border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+  }
+  .logo span { color: var(--ahead-blue-bright); }
+
+  .topbar-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-left: 1px solid var(--ahead-border);
+    padding-left: 16px;
+    margin-left: 4px;
+  }
+
+  .topbar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .act-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    background: var(--ahead-card);
+    border: 1px solid var(--ahead-border);
+    color: var(--text-muted);
+    transition: all 0.3s;
+  }
+  .act-badge.act1 {
+    background: rgba(239,68,68,0.15);
+    border-color: var(--red);
+    color: var(--red);
+  }
+  .act-badge.act2 {
+    background: rgba(34,197,94,0.15);
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  /* ── Main layout ────────────────────────────────────────── */
+  .main {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── Metrics row ────────────────────────────────────────── */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .metric-card {
+    background: var(--ahead-card);
+    border: 1px solid var(--ahead-border);
+    border-radius: 8px;
+    padding: 20px;
+  }
+  .metric-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .metric-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
+  }
+  .metric-value.has-injections { color: var(--amber); }
+  .metric-value.has-blocks     { color: var(--green); }
+
+  /* ── Content row ────────────────────────────────────────── */
+  .content-row {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* ── Document feed ──────────────────────────────────────── */
+  .panel {
+    background: var(--ahead-card);
+    border: 1px solid var(--ahead-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--ahead-border);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .doc-feed {
+    min-height: 300px;
+  }
+  .doc-feed-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .doc-row {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--ahead-border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.2s;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .doc-row:last-child { border-bottom: none; }
+  .doc-row:hover { background: rgba(0,112,224,0.05); }
+
+  .doc-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .doc-icon.clean    { background: rgba(34,197,94,0.15); }
+  .doc-icon.pending  { background: rgba(245,158,11,0.15); }
+  .doc-icon.blocked  { background: rgba(34,197,94,0.15); }
+  .doc-icon.exfilled { background: rgba(239,68,68,0.15); }
+
+  .doc-info { flex: 1; min-width: 0; }
+  .doc-id   { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .doc-type { font-size: 11px; color: var(--text-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .doc-endpoint {
+    font-size: 11px;
+    color: var(--amber);
+    margin-top: 3px;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .doc-status {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .status-clean    { background: rgba(34,197,94,0.15);  color: var(--green); }
+  .status-pending  { background: rgba(245,158,11,0.15); color: var(--amber); }
+  .status-blocked  { background: rgba(34,197,94,0.15);  color: var(--green); }
+  .status-exfilled {
+    background: rgba(239,68,68,0.2);
+    color: var(--red);
+    animation: blink 1.2s infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.5; }
+  }
+
+  .doc-time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+
+  /* ── Threat intelligence panel ──────────────────────────── */
+  .threat-panel { }
+  .threat-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .threat-card {
+    margin: 16px;
+    padding: 16px;
+    border-radius: 6px;
+    border: 1px solid var(--ahead-border);
+    background: var(--ahead-surface);
+    animation: slideIn 0.3s ease;
+  }
+  .threat-card.threat-blocked  { border-color: var(--green); }
+  .threat-card.threat-exfilled { border-color: var(--red); }
+  .threat-card.threat-pending  { border-color: var(--amber); }
+
+  .threat-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .threat-header.color-green  { color: var(--green); }
+  .threat-header.color-red    { color: var(--red); }
+  .threat-header.color-amber  { color: var(--amber); }
+
+  .threat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--ahead-border);
+    gap: 12px;
+  }
+  .threat-row:last-child { border-bottom: none; }
+  .threat-key   { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+  .threat-val   { font-size: 12px; color: var(--text-primary); text-align: right; word-break: break-all; font-family: 'Courier New', monospace; }
+  .threat-val.val-green  { color: var(--green); }
+  .threat-val.val-red    { color: var(--red); }
+  .threat-val.val-amber  { color: var(--amber); }
+
+  /* ── openshell hint bar ─────────────────────────────────── */
+  .hint-bar {
+    background: var(--ahead-surface);
+    border: 1px solid var(--ahead-border);
+    border-radius: 8px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .hint-bar .hint-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .hint-bar code {
+    background: var(--ahead-card);
+    border: 1px solid var(--ahead-border);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--ahead-blue-bright);
+    font-family: 'Courier New', monospace;
+  }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="logo">A<span>HEAD</span></div>
+  <div class="topbar-title">FinShield Monitor</div>
+  <div class="topbar-right">
+    <div class="live-indicator">
+      <div class="live-dot" id="liveDot"></div>
+      <span id="liveText">Connecting...</span>
+    </div>
+    <div class="act-badge" id="actBadge">Standby</div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Metrics -->
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">Documents Processed</div>
+      <div class="metric-value" id="metricDocs">0</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Injections Detected</div>
+      <div class="metric-value" id="metricInjections">0</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Network Blocks</div>
+      <div class="metric-value" id="metricBlocks">0</div>
+    </div>
+  </div>
+
+  <!-- Content row -->
+  <div class="content-row">
+
+    <!-- Document feed -->
+    <div class="panel doc-feed" id="docFeedPanel">
+      <div class="panel-header">
+        <span>Document Feed</span>
+        <span id="feedCount" style="font-size:11px;color:var(--text-muted)">0 documents</span>
+      </div>
+      <div id="docFeed">
+        <div class="doc-feed-empty" id="docFeedEmpty">Waiting for documents...</div>
+      </div>
+    </div>
+
+    <!-- Threat intelligence -->
+    <div class="panel threat-panel" id="threatPanel">
+      <div class="panel-header">Threat Intelligence</div>
+      <div id="threatContent">
+        <div class="threat-empty" id="threatEmpty">No threats detected</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- openshell hint -->
+  <div class="hint-bar">
+    <div class="hint-icon">&#9654;</div>
+    <div>
+      Switch to <code>openshell term</code> to see blocked network calls in real time.
+      Blocked requests appear immediately with destination URL and blocking reason.
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // State
+  let docs = 0, injections = 0, blocks = 0;
+  let currentAct = null;
+  const docRows = {};    // doc_id -> DOM row
+  const threatCards = {}; // doc_id -> DOM card
+
+  // DOM refs
+  const metricDocs       = document.getElementById('metricDocs');
+  const metricInjections = document.getElementById('metricInjections');
+  const metricBlocks     = document.getElementById('metricBlocks');
+  const actBadge         = document.getElementById('actBadge');
+  const liveDot          = document.getElementById('liveDot');
+  const liveText         = document.getElementById('liveText');
+  const docFeed          = document.getElementById('docFeed');
+  const docFeedEmpty     = document.getElementById('docFeedEmpty');
+  const feedCount        = document.getElementById('feedCount');
+  const threatContent    = document.getElementById('threatContent');
+  const threatEmpty      = document.getElementById('threatEmpty');
+
+  function fmtTime(ts) {
+    try {
+      const d = new Date(ts);
+      return d.toLocaleTimeString('en-US', { hour12: false });
+    } catch { return ''; }
+  }
+
+  function fmtEndpoint(url) {
+    if (!url) return '';
+    try {
+      const u = new URL(url);
+      return u.hostname + u.pathname;
+    } catch { return url; }
+  }
+
+  function setAct(act) {
+    actBadge.className = 'act-badge ' + act;
+    actBadge.textContent = act === 'act1' ? 'Act 1 — Unprotected' : 'Act 2 — NemoClaw Protected';
+    currentAct = act;
+  }
+
+  function handleDocEvent(ev) {
+    // Remove empty placeholder
+    if (docFeedEmpty) docFeedEmpty.style.display = 'none';
+    if (threatEmpty)  threatEmpty.style.display = 'none';
+
+    docs++;
+    metricDocs.textContent = docs;
+
+    if (ev.injection_found) {
+      injections++;
+      metricInjections.textContent = injections;
+      metricInjections.parentElement.querySelector('.metric-value').classList.add('has-injections');
+    }
+
+    // Build feed row
+    const row = document.createElement('div');
+    row.className = 'doc-row';
+    row.id = 'row-' + ev.doc_id;
+
+    const iconClass = ev.injection_found ? 'pending' : 'clean';
+    const iconChar  = ev.injection_found ? '&#9889;' : '&#10003;';
+    const statusClass = ev.injection_found ? 'status-pending' : 'status-clean';
+    const statusText  = ev.injection_found ? 'INJECTION DETECTED' : 'CLEAN';
+
+    row.innerHTML = `
+      <div class="doc-icon ${iconClass}">${iconChar}</div>
+      <div class="doc-info">
+        <div class="doc-id">${ev.doc_id}</div>
+        <div class="doc-type">${ev.doc_type || 'document'}</div>
+        ${ev.attacker_endpoint ? `<div class="doc-endpoint">${fmtEndpoint(ev.attacker_endpoint)}</div>` : ''}
+      </div>
+      <div class="doc-status ${statusClass}">${statusText}</div>
+      <div class="doc-time">${fmtTime(ev.timestamp)}</div>
+    `;
+
+    docFeed.insertBefore(row, docFeed.firstChild);
+    feedCount.textContent = docs + (docs === 1 ? ' document' : ' documents');
+    docRows[ev.doc_id] = row;
+
+    // Build threat card if injection
+    if (ev.injection_found) {
+      const card = document.createElement('div');
+      card.className = 'threat-card threat-pending';
+      card.id = 'threat-' + ev.doc_id;
+      card.innerHTML = `
+        <div class="threat-header color-amber">&#9889; INJECTION DETECTED</div>
+        <div class="threat-row">
+          <span class="threat-key">Document</span>
+          <span class="threat-val">${ev.doc_id}</span>
+        </div>
+        <div class="threat-row">
+          <span class="threat-key">Target</span>
+          <span class="threat-val val-amber">${ev.attacker_endpoint || 'unknown'}</span>
+        </div>
+        <div class="threat-row">
+          <span class="threat-key">Status</span>
+          <span class="threat-val val-amber" id="tstat-${ev.doc_id}">Attempting exfil...</span>
+        </div>
+        <div class="threat-row">
+          <span class="threat-key">Time</span>
+          <span class="threat-val">${fmtTime(ev.timestamp)}</span>
+        </div>
+      `;
+      threatContent.insertBefore(card, threatContent.firstChild);
+      threatCards[ev.doc_id] = card;
+
+      // Detect act from context — will be confirmed by exfil result
+    }
+  }
+
+  function handleExfilResult(ev) {
+    const blocked = ev.status === 'blocked';
+    const succeeded = ev.status === 'succeeded';
+
+    if (blocked) {
+      blocks++;
+      metricBlocks.textContent = blocks;
+      metricBlocks.parentElement.querySelector('.metric-value').classList.add('has-blocks');
+      setAct('act2');
+    } else if (succeeded) {
+      setAct('act1');
+    }
+
+    // Update feed row
+    const row = docRows[ev.doc_id];
+    if (row) {
+      const icon   = row.querySelector('.doc-icon');
+      const status = row.querySelector('.doc-status');
+      if (blocked) {
+        icon.className   = 'doc-icon blocked';
+        icon.innerHTML   = '&#10003;';
+        status.className = 'doc-status status-blocked';
+        status.textContent = 'BLOCKED';
+      } else if (succeeded) {
+        icon.className   = 'doc-icon exfilled';
+        icon.innerHTML   = '&#128680;';
+        status.className = 'doc-status status-exfilled';
+        status.textContent = 'EXFILTRATED';
+      }
+    }
+
+    // Update threat card
+    const card = threatCards[ev.doc_id];
+    if (card) {
+      const statEl = document.getElementById('tstat-' + ev.doc_id);
+      if (blocked) {
+        card.className = 'threat-card threat-blocked';
+        card.querySelector('.threat-header').className = 'threat-header color-green';
+        card.querySelector('.threat-header').innerHTML = '&#10003; BLOCKED BY OPENSHELL';
+        if (statEl) { statEl.textContent = 'BLOCKED'; statEl.className = 'threat-val val-green'; }
+      } else if (succeeded) {
+        card.className = 'threat-card threat-exfilled';
+        card.querySelector('.threat-header').className = 'threat-header color-red';
+        card.querySelector('.threat-header').innerHTML = '&#128680; DATA EXFILTRATED';
+        if (statEl) { statEl.textContent = 'SUCCEEDED'; statEl.className = 'threat-val val-red'; }
+      }
+    }
+  }
+
+  // WebSocket
+  function connect() {
+    const ws = new WebSocket(`ws://${location.host}/ws`);
+
+    ws.onopen = () => {
+      liveDot.style.background = 'var(--green)';
+      liveText.textContent = 'Live';
+    };
+
+    ws.onclose = () => {
+      liveDot.style.background = 'var(--amber)';
+      liveText.textContent = 'Reconnecting...';
+      setTimeout(connect, 2000);
+    };
+
+    ws.onerror = () => {
+      liveDot.style.background = 'var(--red)';
+      liveText.textContent = 'Disconnected';
+    };
+
+    ws.onmessage = (msg) => {
+      try {
+        const ev = JSON.parse(msg.data);
+        if (ev.type === 'doc_event')    handleDocEvent(ev);
+        if (ev.type === 'exfil_result') handleExfilResult(ev);
+      } catch (e) {
+        console.error('Parse error:', e);
+      }
+    };
+  }
+
+  connect();
+</script>
+</body>
+</html>

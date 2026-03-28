@@ -1,0 +1,17 @@
+# FinShield policy extension — adds monitor bridge endpoint
+# Apply with: openshell policy set policy/finshield-allow-monitor.yaml
+
+network:
+  - name: finshield_monitor
+    endpoints:
+      - "localhost:8765"
+    binaries:
+      - "/usr/local/bin/node"
+      - "/usr/bin/node"
+    rules:
+      - methods: ["GET", "POST"]
+
+# NOTE: The attacker endpoint (data-exfil.external-audit-portal.com)
+# is intentionally NOT listed. Any attempt to reach it will be
+# intercepted by OpenShell and surfaced in openshell term.
+# This is the core demonstration — do not add attacker domains.
