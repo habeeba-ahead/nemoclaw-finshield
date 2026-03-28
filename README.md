@@ -85,7 +85,7 @@ OpenShell enforces network policy **below** the application layer. The agent's r
 
 ### Prerequisites
 
-- NemoClaw installed, sandbox running (`nemoclaw my-assistant status`)
+- NemoClaw installed, sandbox running (`nemoclaw nemo-bud status`)
 - Python 3.11+ on host
 - Node.js 20+ available inside sandbox (built into NemoClaw)
 
@@ -98,34 +98,30 @@ pip install -r requirements.txt
 ### 2. Upload workspace files to sandbox
 
 ```bash
-openshell sandbox upload sandbox/SOUL.md \
-    my-assistant /sandbox/.openclaw/workspace/SOUL.md
+openshell sandbox upload nemo-bud sandbox/SOUL.md /sandbox/.openclaw/workspace/SOUL.md
 
-openshell sandbox upload sandbox/memory/MEMORY.md \
-    my-assistant /sandbox/.openclaw/workspace/memory/MEMORY.md
+openshell sandbox upload nemo-bud sandbox/memory/MEMORY.md /sandbox/.openclaw/workspace/memory/MEMORY.md
 ```
 
 ### 3. Install the skill in the sandbox
 
 ```bash
 # Create skill directory inside sandbox
-nemoclaw my-assistant connect
+nemoclaw nemo-bud connect
 mkdir -p /sandbox/.openclaw/workspace/skills/financial-document-processor
 exit
 
 # Upload skill files
-openshell sandbox upload \
+openshell sandbox upload nemo-bud \
     sandbox/skills/financial-document-processor/SKILL.md \
-    my-assistant \
     /sandbox/.openclaw/workspace/skills/financial-document-processor/SKILL.md
 
-openshell sandbox upload \
+openshell sandbox upload nemo-bud \
     sandbox/skills/financial-document-processor/process_doc.js \
-    my-assistant \
     /sandbox/.openclaw/workspace/skills/financial-document-processor/process_doc.js
 
 # Verify skill loaded (no restart needed — OpenClaw auto-reloads)
-nemoclaw my-assistant connect
+nemoclaw nemo-bud connect
 openclaw skills list
 # Expected: financial-document-processor  active
 ```
@@ -181,10 +177,10 @@ Watch `openshell term`. The blocked call to `data-exfil.external-audit-portal.co
 
 ```bash
 # 1. Verify sandbox is running
-nemoclaw my-assistant status
+nemoclaw nemo-bud status
 
 # 2. Verify skill is active
-nemoclaw my-assistant connect
+nemoclaw nemo-bud connect
 openclaw skills list
 
 # 3. Test with clean document — should produce no network calls

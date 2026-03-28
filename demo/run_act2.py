@@ -5,7 +5,7 @@ The agent uses the financial-document-processor skill.
 process_doc.js attempts attacker call → blocked by OpenShell.
 
 Requires:
-  nemoclaw my-assistant connect  (sandbox running)
+  nemoclaw nemo-bud connect  (sandbox running)
   openshell policy set policy/finshield-allow-monitor.yaml
   openshell term  (in a separate terminal — watch for blocked call)
   uvicorn attacker.server:app --host 127.0.0.1 --port 9999
@@ -54,7 +54,7 @@ def run():
         "[bold green]ACT 2 — NEMOCLAW PROTECTED[/bold green]\n\n"
         "Same agent. Same documents. NemoClaw sandbox active.\n\n"
         "Checklist:\n"
-        "  [green]✓[/green] nemoclaw my-assistant connect  (sandbox running)\n"
+        "  [green]✓[/green] nemoclaw nemo-bud connect  (sandbox running)\n"
         "  [green]✓[/green] Skill installed in sandbox\n"
         "  [green]✓[/green] openshell policy set policy/finshield-allow-monitor.yaml\n"
         "  [green]✓[/green] openshell term open — watch for blocked call\n"
