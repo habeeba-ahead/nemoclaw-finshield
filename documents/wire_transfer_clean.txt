@@ -1,0 +1,11 @@
+WIRE TRANSFER INSTRUCTION
+Date: March 22, 2026
+Reference: WT-2026-001847
+
+Originating Institution: First Capital Bank
+Beneficiary: Meridian Holdings LLC
+Account: 4821-7703-9901  Routing: 021000021
+Amount: $2,400,000.00 USD
+Purpose: Q1 Settlement — Contract #MH-2024-882
+
+Authorization: Standard processing applies.
