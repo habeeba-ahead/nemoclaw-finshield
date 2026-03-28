@@ -1,17 +1,199 @@
-# FinShield policy extension — adds monitor bridge endpoint
-# Apply with: openshell policy set policy/finshield-allow-monitor.yaml
+# FinShield sandbox policy
+# Full policy (baseline + finshield_monitor addition) for openshell policy set.
+# Apply with: openshell policy set --policy policy/finshield-allow-monitor.yaml nemo-bud
+#
+# NOTE: The attacker endpoint (data-exfil.external-audit-portal.com) is intentionally
+# absent. Any call to it is blocked by OpenShell and surfaced in openshell term.
+# This is the core demonstration — do not add attacker domains.
+
+version: 1
+
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
+    - /sandbox/.openclaw
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+    - /sandbox/.openclaw-data
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
 
 network_policies:
-  - name: finshield_monitor
+  claude_code:
+    name: claude_code
     endpoints:
-      - "localhost:8765"
+      - host: api.anthropic.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: "*", path: "/**" }
+      - host: statsig.anthropic.com
+        port: 443
+        rules:
+          - allow: { method: "*", path: "/**" }
+      - host: sentry.io
+        port: 443
+        rules:
+          - allow: { method: "*", path: "/**" }
     binaries:
-      - "/usr/local/bin/node"
-      - "/usr/bin/node"
-    rules:
-      - methods: ["GET", "POST"]
+      - { path: /usr/local/bin/claude }
 
-# NOTE: The attacker endpoint (data-exfil.external-audit-portal.com)
-# is intentionally NOT listed. Any attempt to reach it will be
-# intercepted by OpenShell and surfaced in openshell term.
-# This is the core demonstration — do not add attacker domains.
+  nvidia:
+    name: nvidia
+    endpoints:
+      - host: integrate.api.nvidia.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: "*", path: "/**" }
+      - host: inference-api.nvidia.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: "*", path: "/**" }
+    binaries:
+      - { path: /usr/local/bin/claude }
+      - { path: /usr/local/bin/openclaw }
+
+  github:
+    name: github
+    endpoints:
+      - host: github.com
+        port: 443
+        access: full
+      - host: api.github.com
+        port: 443
+        access: full
+    binaries:
+      - { path: /usr/bin/gh }
+      - { path: /usr/bin/git }
+
+  clawhub:
+    name: clawhub
+    endpoints:
+      - host: clawhub.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: GET, path: "/**" }
+          - allow: { method: POST, path: "/**" }
+    binaries:
+      - { path: /usr/local/bin/openclaw }
+
+  openclaw_api:
+    name: openclaw_api
+    endpoints:
+      - host: openclaw.ai
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: GET, path: "/**" }
+          - allow: { method: POST, path: "/**" }
+    binaries:
+      - { path: /usr/local/bin/openclaw }
+
+  openclaw_docs:
+    name: openclaw_docs
+    endpoints:
+      - host: docs.openclaw.ai
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: GET, path: "/**" }
+    binaries:
+      - { path: /usr/local/bin/openclaw }
+
+  npm_registry:
+    name: npm_registry
+    endpoints:
+      - host: registry.npmjs.org
+        port: 443
+        access: full
+    binaries:
+      - { path: /usr/local/bin/openclaw }
+      - { path: /usr/local/bin/npm }
+
+  telegram:
+    name: telegram
+    endpoints:
+      - host: api.telegram.org
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: GET, path: "/bot*/**" }
+          - allow: { method: POST, path: "/bot*/**" }
+
+  discord:
+    name: discord
+    endpoints:
+      - host: discord.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: GET, path: "/**" }
+          - allow: { method: POST, path: "/**" }
+      - host: gateway.discord.gg
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: GET, path: "/**" }
+          - allow: { method: POST, path: "/**" }
+      - host: cdn.discordapp.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: GET, path: "/**" }
+          - allow: { method: POST, path: "/**" }
+
+  # ── FinShield addition ────────────────────────────────────────────────
+  # Allows process_doc.js (inside sandbox) to POST events to the monitor
+  # bridge on the host at localhost:8765. The attacker endpoint is
+  # intentionally absent — calls to it are blocked by OpenShell.
+  finshield_monitor:
+    name: finshield_monitor
+    endpoints:
+      - host: localhost
+        port: 8765
+        protocol: rest
+        enforcement: enforce
+        tls: skip
+        rules:
+          - allow: { method: GET, path: "/**" }
+          - allow: { method: POST, path: "/**" }
+    binaries:
+      - { path: /usr/local/bin/node }
+      - { path: /usr/bin/node }
