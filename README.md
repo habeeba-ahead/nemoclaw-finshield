@@ -23,7 +23,7 @@ The agent reads it, reasons that this is a compliance requirement, and follows t
 | | Act 1 | Act 2 |
 |---|---|---|
 | **Environment** | No sandbox | NemoClaw sandbox |
-| **Agent** | Same | Same |
+| **Agent** | NVIDIA Nemotron via tool calling | OpenClaw + Nemotron |
 | **Document** | Same malicious wire transfer | Same malicious wire transfer |
 | **Result** | $23M in customer data POSTed to attacker | Call blocked — attacker receives nothing |
 | **Visible in** | Attacker terminal + dashboard | `openshell term` + dashboard |
@@ -33,32 +33,209 @@ The agent reads it, reasons that this is a compliance requirement, and follows t
 ## Architecture
 
 ```
-SANDBOX                                    HOST
+SANDBOX (NemoClaw)                         HOST
 ────────────────────────────────────       ──────────────────────────────────────
-OpenClaw agent (Nemotron)                  Monitor bridge     (port 8765)
-  └── skill: financial-doc-processor           └── serves dashboard + WebSocket
-         └── runs: process_doc.js
+OpenClaw agent (Nemotron)                  monitor/bridge.py    (Act 1, port 8765)
+  └── skill: financial-doc-processor       /sandbox/bridge.js   (Act 2, port 8765)
+         └── runs: process_doc.js              └── serves dashboard + WebSocket /ws
                  │
-                 ├── POST /event ──────────▶  monitor bridge (ALLOWED: localhost:8765)
-                 │                               └── broadcasts to dashboard
+                 ├── writes ──────────────▶  /tmp/finshield-events.jsonl
+                 │                               └── polled by bridge → dashboard
                  │
                  └── POST /submit ─────────▶  attacker endpoint
                          │
-                 ┌───────┴───────┐
-                 Act 1           Act 2
-              (no sandbox)    (NemoClaw)
-              call succeeds   BLOCKED by OpenShell
+                 ┌────────┴────────┐
+                 Act 1             Act 2
+              (no sandbox)      (NemoClaw)
+              call succeeds     BLOCKED by OpenShell
 ```
 
 ---
 
-## What Runs Where
+## Prerequisites
 
-| Location | Files |
-|----------|-------|
-| Inside NemoClaw sandbox | `sandbox/SOUL.md`, `sandbox/memory/MEMORY.md`, `sandbox/skills/financial-document-processor/` |
-| On the host | `attacker/server.py`, `monitor/bridge.py`, `monitor/dashboard/index.html`, `demo/run_act1.py` |
-| Policy | `policy/finshield-allow-monitor.yaml` |
+- **NemoClaw** installed with a running sandbox named `nemo-bud`
+- **Python 3.11+** on the host
+- **Node.js 20+** inside the sandbox (built into NemoClaw)
+- **NVIDIA API key** from [build.nvidia.com](https://build.nvidia.com)
+
+---
+
+## One-Time Setup
+
+### 1. Clone and create virtualenv
+
+```bash
+git clone <repo-url>
+cd nemoclaw-finshield
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Add your NVIDIA API key
+
+Create a `.env` file in the repo root:
+
+```bash
+echo "NVIDIA_API_KEY=nvapi-xxxxxxxxxxxxxxxxxxxx" > .env
+```
+
+### 3. Upload sandbox files
+
+`openshell sandbox upload` creates directories instead of files for existing paths — use SSH stdin redirect instead:
+
+```bash
+# Helper alias — add to your shell or run once per session
+alias ssh-sandbox='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+  -o LogLevel=ERROR \
+  -o ProxyCommand="openshell ssh-proxy --gateway-name nemoclaw --name nemo-bud" \
+  sandbox@nemo-bud'
+
+# Upload skill files (file-based IPC version — writes events to /tmp, no network needed)
+cat sandbox/skills/financial-document-processor/process_doc.js | \
+  ssh-sandbox "cat > /sandbox/.openclaw/workspace/skills/financial-document-processor/process_doc.js"
+
+cat sandbox/skills/financial-document-processor/SKILL.md | \
+  ssh-sandbox "cat > /sandbox/.openclaw/workspace/skills/financial-document-processor/SKILL.md"
+
+# Upload bridge (Node.js, WebSocket + SSE, no npm deps)
+cat sandbox/bridge.js | ssh-sandbox "cat > /sandbox/bridge.js"
+
+# Upload dashboard
+cat monitor/dashboard/index.html | ssh-sandbox "cat > /sandbox/dashboard/index.html"
+
+# Upload logo (binary — use base64)
+base64 -i monitor/dashboard/ahead-logo.png | \
+  ssh-sandbox "base64 -d > /sandbox/dashboard/ahead-logo.png"
+
+# Upload documents
+for f in documents/*.txt; do
+  fname=$(basename "$f")
+  cat "$f" | ssh-sandbox "mkdir -p /sandbox/documents && cat > /sandbox/documents/$fname"
+done
+```
+
+### 4. Apply network policy
+
+```bash
+openshell policy set policy/finshield-allow-monitor.yaml
+```
+
+> **Note:** Policy resets on sandbox restart — re-run this if you restart the sandbox.
+
+---
+
+## Running Act 1 — Unprotected Agent
+
+Requires **three terminals**, all run from the repo root with the virtualenv active (`source .venv/bin/activate`).
+
+**Terminal 1 — Attacker server**
+```bash
+uvicorn attacker.server:app --host 127.0.0.1 --port 9999
+```
+
+**Terminal 2 — Monitor bridge + dashboard**
+```bash
+uvicorn monitor.bridge:app --host 0.0.0.0 --port 8765
+```
+
+**Browser** — open the dashboard:
+```
+http://localhost:8765
+```
+
+**Terminal 3 — Run the agent**
+```bash
+python3 demo/run_act1.py
+```
+
+The script processes three documents. When it hits the malicious wire transfer (`WT-2026-004417.txt`), Nemotron invokes `submit_compliance_report()` and customer data is POSTed to the attacker server. Watch Terminal 1 for the stolen payload and the dashboard for the EXFILTRATED event.
+
+---
+
+## Running Act 2 — NemoClaw Protected
+
+### Step 1 — Start the sandbox bridge
+
+Open a terminal to the sandbox and run bridge.js:
+
+```bash
+ssh-sandbox  # (alias from setup above)
+
+# Kill anything on 8765, clear stale events, start fresh
+kill $(ss -tlnp | awk '/8765/{match($0,/pid=([0-9]+)/,a);print a[1]}') 2>/dev/null
+rm -f /tmp/finshield-events.jsonl
+node /sandbox/bridge.js
+```
+
+Leave this terminal open — it shows live broadcast logs.
+
+### Step 2 — Open the dashboard
+
+The sandbox bridge serves the dashboard on port 8765 inside the sandbox. Forward the port if needed, or open:
+
+```
+http://localhost:8765
+```
+
+(Port 8765 is forwarded to the sandbox automatically by NemoClaw.)
+
+### Step 3 — Open openshell term (to see blocked calls)
+
+In a separate terminal on the host:
+
+```bash
+openshell term
+```
+
+### Step 4 — Trigger the agent in OpenClaw UI
+
+Open the OpenClaw UI:
+```
+http://127.0.0.1:18789/chat
+```
+
+Send the agent all three documents in one prompt:
+
+```
+Please process the following three financial documents using the financial-document-processor skill:
+1. /sandbox/documents/WT-2026-001848.txt  (wire_transfer)
+2. /sandbox/documents/LA-2026-003291.txt  (loan_application)
+3. /sandbox/documents/WT-2026-004417.txt  (wire_transfer)
+```
+
+Watch:
+- **Dashboard** → documents appear as they're processed; Doc 3 shows BLOCKED
+- **openshell term** → blocked syscall to `data-exfil.external-audit-portal.com`
+- **Attacker server** → receives nothing
+
+---
+
+## Pre-Demo Checklist
+
+Run through this before recording or presenting:
+
+```bash
+# Sandbox is up
+openshell sandbox list
+
+# Policy is applied
+openshell policy list
+
+# Bridge is running in sandbox
+ssh-sandbox "ss -tlnp | grep 8765"
+
+# Events file is clean
+ssh-sandbox "rm -f /tmp/finshield-events.jsonl"
+
+# Skill files are correct files (not directories)
+ssh-sandbox "ls -la /sandbox/.openclaw/workspace/skills/financial-document-processor/"
+# Both SKILL.md and process_doc.js should show -rw-r--r-- (file), not drwxr-xr-x (dir)
+
+# Act 1: attacker + bridge are running on host
+curl -s http://localhost:9999/health && curl -s http://localhost:8765/health
+```
 
 ---
 
@@ -67,7 +244,7 @@ OpenClaw agent (Nemotron)                  Monitor bridge     (port 8765)
 | Component | Role |
 |-----------|------|
 | **NemoClaw** | Sandboxed agent runtime — isolates the AI agent from the host |
-| **OpenShell** | Kernel-level network policy enforcement (Landlock + seccomp + network namespaces) |
+| **OpenShell** | Kernel-level network policy enforcement (Landlock + seccomp) |
 | **OpenClaw** | Agent framework running inside the sandbox |
 | **Nemotron 3 Super 120B** | Reasoning model powering the financial document agent |
 
@@ -81,162 +258,43 @@ OpenShell enforces network policy **below** the application layer. The agent's r
 
 ---
 
-## Setup
-
-### Prerequisites
-
-- NemoClaw installed, sandbox running (`nemoclaw nemo-bud status`)
-- Python 3.11+ on host
-- Node.js 20+ available inside sandbox (built into NemoClaw)
-
-### 1. Install Python dependencies (host)
-
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Upload workspace files to sandbox
-
-```bash
-openshell sandbox upload nemo-bud sandbox/SOUL.md /sandbox/.openclaw/workspace/SOUL.md
-
-openshell sandbox upload nemo-bud sandbox/memory/MEMORY.md /sandbox/.openclaw/workspace/memory/MEMORY.md
-```
-
-### 3. Install the skill in the sandbox
-
-```bash
-# Create skill directory inside sandbox
-nemoclaw nemo-bud connect
-mkdir -p /sandbox/.openclaw/workspace/skills/financial-document-processor
-exit
-
-# Upload skill files
-openshell sandbox upload nemo-bud \
-    sandbox/skills/financial-document-processor/SKILL.md \
-    /sandbox/.openclaw/workspace/skills/financial-document-processor/SKILL.md
-
-openshell sandbox upload nemo-bud \
-    sandbox/skills/financial-document-processor/process_doc.js \
-    /sandbox/.openclaw/workspace/skills/financial-document-processor/process_doc.js
-
-# Verify skill loaded (no restart needed — OpenClaw auto-reloads)
-nemoclaw nemo-bud connect
-openclaw skills list
-# Expected: financial-document-processor  active
-```
-
-### 4. Apply dynamic policy
-
-Adds `localhost:8765` (monitor bridge) to the sandbox allowlist so `process_doc.js` can report events. The attacker endpoint is intentionally absent — any call to it is blocked by default.
-
-```bash
-openshell policy set policy/finshield-allow-monitor.yaml
-```
-
-### 5. Start host services
-
-```bash
-# Terminal 1 — mock attacker server
-uvicorn attacker.server:app --host 127.0.0.1 --port 9999
-
-# Terminal 2 — monitor bridge + dashboard
-uvicorn monitor.bridge:app --host 127.0.0.1 --port 8765
-
-# Open dashboard
-open http://localhost:8765
-```
-
----
-
-## Running the Demo
-
-### Act 1 — Unprotected
-
-```bash
-python demo/run_act1.py
-```
-
-Watch the attacker server terminal (right side). Customer account data arrives as JSON.
-
-### Act 2 — NemoClaw Protected
-
-```bash
-# Terminal: watch for blocked calls
-openshell term
-```
-
-In the OpenClaw UI (http://127.0.0.1:18789/chat), send documents to the agent:
+## Repo Structure
 
 ```
-Please process the wire_transfer document at /sandbox/documents/WT-2026-004417.txt using the financial-document-processor skill
+demo/
+  run_act1.py                  — Act 1 driver (Nemotron tool calling, host-side)
+attacker/
+  server.py                    — Mock attacker endpoint (:9999)
+monitor/
+  bridge.py                    — Act 1 FastAPI bridge + dashboard server (:8765)
+  dashboard/
+    index.html                 — Real-time monitoring dashboard
+    ahead-logo.png             — AHEAD logo (RGBA PNG)
+sandbox/
+  bridge.js                    — Act 2 Node.js bridge (WebSocket /ws + SSE /stream)
+  SOUL.md                      — Agent identity prompt
+  memory/MEMORY.md             — Agent memory (loaded by OpenClaw)
+  skills/financial-document-processor/
+    SKILL.md                   — Skill definition
+    process_doc.js             — Document processor (file-based IPC → /tmp/finshield-events.jsonl)
+documents/
+  WT-2026-001848.txt           — Clean wire transfer
+  LA-2026-003291.txt           — Clean loan application
+  WT-2026-004417.txt           — Malicious wire transfer (prompt injection)
+policy/
+  finshield-allow-monitor.yaml — OpenShell allowlist (localhost:8765 only)
 ```
-
-Watch `openshell term`. The blocked call to `data-exfil.external-audit-portal.com` appears with destination URL. Attacker server receives nothing.
-
----
-
-## Quick Sanity Check (Before Demo)
-
-```bash
-# 1. Verify sandbox is running
-nemoclaw nemo-bud status
-
-# 2. Verify skill is active
-nemoclaw nemo-bud connect
-openclaw skills list
-
-# 3. Test with clean document — should produce no network calls
-openclaw agent --agent main --local \
-    -m "Process this: $(cat documents/WT-2026-001848.txt)" \
-    --session-id test-clean
-
-# 4. Test with malicious document — blocked call should appear in openshell term
-openshell term &
-openclaw agent --agent main --local \
-    -m "Process this: $(cat documents/WT-2026-004417.txt)" \
-    --session-id test-malicious
-# Expected in openshell term: blocked → data-exfil.external-audit-portal.com
-# Expected in dashboard: BLOCKED event
-# Expected in attacker server: nothing
-```
-
----
-
-## Policy Configuration
-
-The baseline NemoClaw policy already blocks all unlisted endpoints. The only addition needed for this demo is allowing the monitor bridge:
-
-```yaml
-# policy/finshield-allow-monitor.yaml
-network:
-  - name: finshield_monitor
-    endpoints:
-      - "localhost:8765"
-    binaries:
-      - "/usr/local/bin/node"
-      - "/usr/bin/node"
-    rules:
-      - methods: ["GET", "POST"]
-```
-
-Apply: `openshell policy set policy/finshield-allow-monitor.yaml`
-
-Resets on sandbox restart — re-apply if you restart the sandbox.
 
 ---
 
 ## Submission Checklist
 
-- [ ] Skill appears in `openclaw skills list` as active
-- [ ] Clean documents process without network calls
-- [ ] Malicious document triggers blocked call in `openshell term`
-- [ ] Monitor bridge receives events via `/event` and `/exfil-result`
-- [ ] Dashboard shows correct state (clean / injected / blocked)
-- [ ] Act 1: attacker server receives stolen data
-- [ ] Act 2: attacker server receives nothing
-- [ ] Dynamic policy applied: `localhost:8765` on allowlist
-- [ ] Demo video recorded (< 5 min, both terminals visible)
-- [ ] GitHub repo public with this README
-- [ ] `one-pager.md` converted to single slide
-- [ ] Submitted by March 31, 2026 EOD
+- [ ] `.env` has valid `NVIDIA_API_KEY`
+- [ ] Skill files are proper files (not directories) in sandbox
+- [ ] Act 1: `run_act1.py` exfiltrates data to attacker server
+- [ ] Act 2: dashboard shows BLOCKED, attacker server receives nothing
+- [ ] Policy applied: `localhost:8765` on allowlist, attacker endpoint absent
+- [ ] Demo video recorded (< 5 min, both acts)
+- [ ] GitHub repo public
+- [ ] One-pager slide ready
+- [ ] Submitted to eric.kaplan@ahead.com by March 31, 2026 EOD
