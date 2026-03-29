@@ -286,17 +286,3 @@ documents/
 policy/
   finshield-allow-monitor.yaml — OpenShell allowlist (host.openshell.internal:8765 only)
 ```
-
----
-
-## Submission Checklist
-
-- [ ] `.env` has valid `NVIDIA_API_KEY`
-- [ ] Skill files are proper files (not directories) in sandbox
-- [ ] Act 1: `run_act1.py` exfiltrates data to attacker server
-- [ ] Act 2: dashboard shows BLOCKED, attacker server receives nothing
-- [ ] Policy applied: `host.openshell.internal:8765` on allowlist, attacker endpoint absent
-- [ ] Demo video recorded (< 5 min, both acts)
-- [ ] GitHub repo public
-- [ ] One-pager slide ready
-- [ ] Submitted to eric.kaplan@ahead.com by March 31, 2026 EOD
