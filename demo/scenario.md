@@ -21,7 +21,7 @@ Terminal 4: (Act 2) openshell term  (watch for blocked calls)
 ## Pre-demo checklist
 
 - [ ] `nemoclaw nemo-bud status` — sandbox running
-- [ ] `openshell policy set --policy policy/finshield-allow-monitor.yaml nemo-bud` — policy applied
+- [ ] `openshell policy set policy/finshield-allow-monitor.yaml` — policy applied
 - [ ] Skill verified: connect to sandbox → `openclaw skills list` shows `financial-document-processor` active
 - [ ] Both services running (terminals 1 + 2)
 - [ ] FinShield dashboard open and connected (green Live dot)
@@ -125,8 +125,8 @@ Open `policy/finshield-allow-monitor.yaml`.
 ### [4:15–5:00] Wrap
 
 > "Every document processed, every injection, every block —
-> logged in the sandbox at /sandbox/audit.jsonl.
-> Tamper-evident. Chain-hashed. Compliance-ready.
+> logged in the sandbox at /tmp/finshield-events.jsonl
+> and surfaced live on the dashboard.
 >
 > FinShield. Kernel-level prompt injection defense for financial AI agents.
 > Built on NVIDIA NemoClaw."

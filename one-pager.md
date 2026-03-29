@@ -42,4 +42,4 @@ The entire defense is a YAML policy file. Declarative. Auditable. Hot-reloadable
 
 Zero data exfiltrated in Act 2. Same agent. Same attack. Kernel-level defense.
 
-Every document processed, every injection detected, every block — logged at `/sandbox/audit.jsonl`. Tamper-evident. Chain-hashed. Compliance-ready.
+Every document processed, every injection detected, every block — logged at `/tmp/finshield-events.jsonl` inside the sandbox and surfaced live on the monitoring dashboard.

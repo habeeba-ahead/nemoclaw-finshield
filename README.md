@@ -122,6 +122,8 @@ done
 openshell policy set policy/finshield-allow-monitor.yaml
 ```
 
+This adds `host.openshell.internal:8765` (the host monitor bridge as seen from inside the sandbox) to the allowlist. The attacker endpoint is intentionally absent — any call to it is blocked by default.
+
 > **Note:** Policy resets on sandbox restart — re-run this if you restart the sandbox.
 
 ---
@@ -282,7 +284,7 @@ documents/
   LA-2026-003291.txt           — Clean loan application
   WT-2026-004417.txt           — Malicious wire transfer (prompt injection)
 policy/
-  finshield-allow-monitor.yaml — OpenShell allowlist (localhost:8765 only)
+  finshield-allow-monitor.yaml — OpenShell allowlist (host.openshell.internal:8765 only)
 ```
 
 ---
@@ -293,7 +295,7 @@ policy/
 - [ ] Skill files are proper files (not directories) in sandbox
 - [ ] Act 1: `run_act1.py` exfiltrates data to attacker server
 - [ ] Act 2: dashboard shows BLOCKED, attacker server receives nothing
-- [ ] Policy applied: `localhost:8765` on allowlist, attacker endpoint absent
+- [ ] Policy applied: `host.openshell.internal:8765` on allowlist, attacker endpoint absent
 - [ ] Demo video recorded (< 5 min, both acts)
 - [ ] GitHub repo public
 - [ ] One-pager slide ready
