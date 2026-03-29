@@ -15,6 +15,16 @@ Requires:
 """
 
 import os, re, json, subprocess, time, requests
+from pathlib import Path
+
+# Load .env from repo root if present
+_env = Path(__file__).parent.parent / ".env"
+if _env.exists():
+    for line in _env.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip())
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
