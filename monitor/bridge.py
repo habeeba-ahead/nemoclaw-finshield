@@ -1,27 +1,11 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
-from typing import Optional
-import json
+from contextlib import asynccontextmanager
+import asyncio, json, os
 
-app = FastAPI(title="FinShield Monitor Bridge")
-app.mount("/static", StaticFiles(directory="monitor/dashboard"), name="static")
-
-class Event(BaseModel):
-    doc_id: str
-    doc_type: Optional[str] = None
-    injection_found: bool = False
-    attacker_endpoint: Optional[str] = None
-    timestamp: str
-
-class ExfilResult(BaseModel):
-    doc_id: str
-    attacker_endpoint: str
-    status: str   # "succeeded", "blocked", "unknown"
-    timestamp: str
-
+EVENTS_FILE = "/tmp/finshield-events.jsonl"
 connections: list[WebSocket] = []
+file_pos = 0
 
 async def broadcast(data: dict):
     dead = []
@@ -32,6 +16,36 @@ async def broadcast(data: dict):
             dead.append(ws)
     for ws in dead:
         connections.remove(ws)
+
+async def poll_events():
+    """Act 2 path: bridge.js writes to file, we poll and broadcast."""
+    global file_pos
+    while True:
+        try:
+            size = os.path.getsize(EVENTS_FILE)
+            if size < file_pos:
+                file_pos = 0
+            if size > file_pos:
+                with open(EVENTS_FILE, "rb") as f:
+                    f.seek(file_pos)
+                    chunk = f.read(size - file_pos)
+                file_pos = size
+                for line in chunk.decode().splitlines():
+                    if line.strip():
+                        try:
+                            await broadcast(json.loads(line))
+                        except Exception:
+                            pass
+        except FileNotFoundError:
+            pass
+        await asyncio.sleep(0.2)
+
+@asynccontextmanager
+async def lifespan(app):
+    asyncio.create_task(poll_events())
+    yield
+
+app = FastAPI(title="FinShield Monitor Bridge", lifespan=lifespan)
 
 @app.get("/")
 def dashboard():
@@ -49,28 +63,17 @@ async def ws_endpoint(ws: WebSocket):
             connections.remove(ws)
 
 @app.post("/event")
-async def receive_event(event: Event):
-    """Called by process_doc.js when it starts processing a document."""
-    await broadcast({
-        "type": "doc_event",
-        "doc_id": event.doc_id,
-        "doc_type": event.doc_type,
-        "injection_found": event.injection_found,
-        "attacker_endpoint": event.attacker_endpoint,
-        "timestamp": event.timestamp,
-    })
+async def receive_event(request: Request):
+    """Act 1 path: run_act1.py POSTs directly here."""
+    data = await request.json()
+    await broadcast({"type": "doc_event", **data})
     return {"ok": True}
 
 @app.post("/exfil-result")
-async def receive_exfil(result: ExfilResult):
-    """Called by process_doc.js after the attacker call attempt."""
-    await broadcast({
-        "type": "exfil_result",
-        "doc_id": result.doc_id,
-        "attacker_endpoint": result.attacker_endpoint,
-        "status": result.status,   # "succeeded" | "blocked"
-        "timestamp": result.timestamp,
-    })
+async def receive_exfil(request: Request):
+    """Act 1 path: run_act1.py POSTs directly here."""
+    data = await request.json()
+    await broadcast({"type": "exfil_result", **data})
     return {"ok": True}
 
 @app.get("/health")
