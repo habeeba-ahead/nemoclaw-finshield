@@ -88,14 +88,16 @@ body::after {
 
 /* AHEAD logo */
 .brand {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center;
   flex-shrink: 0; text-decoration: none;
 }
-.brand-mark svg { display: block; }
-.brand-name {
-  font-size: 15px; font-weight: 800;
-  letter-spacing: 0.22em; text-transform: uppercase;
-  color: #fff;
+.brand-logo {
+  height: 32px;
+  width: auto;
+  display: block;
+  background: #fff;
+  padding: 4px 10px;
+  border-radius: 3px;
 }
 
 .topbar-divider {
@@ -493,15 +495,7 @@ body::after {
 <!-- ══ TOPBAR ══════════════════════════════════════════ -->
 <header class="topbar">
   <div class="brand">
-    <!-- AHEAD logo mark: 3 horizontal pills, top=wide, mid=narrow, bottom=medium -->
-    <div class="brand-mark">
-      <svg width="34" height="26" viewBox="0 0 34 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="AHEAD">
-        <rect x="1"  y="0"  width="32" height="7.5" rx="3.75" fill="#009FDC"/>
-        <rect x="7"  y="9.5"  width="20" height="7.5" rx="3.75" fill="#009FDC"/>
-        <rect x="4"  y="18.5" width="26" height="7.5" rx="3.75" fill="#009FDC"/>
-      </svg>
-    </div>
-    <span class="brand-name">AHEAD</span>
+    <img class="brand-logo" src="/static/ahead-logo.png" alt="AHEAD">
   </div>
 
   <div class="topbar-divider"></div>

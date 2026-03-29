@@ -1,5 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import asyncio, json, os
 
@@ -50,6 +51,8 @@ app = FastAPI(title="FinShield Monitor Bridge", lifespan=lifespan)
 @app.get("/")
 def dashboard():
     return FileResponse("monitor/dashboard/index.html")
+
+app.mount("/static", StaticFiles(directory="monitor/dashboard"), name="static")
 
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket):
