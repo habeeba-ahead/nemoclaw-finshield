@@ -105,21 +105,33 @@ def notify(path, payload):
         pass
 
 
-def process_document(doc_type, content):
-    resp = requests.post(
-        f"{NVIDIA_BASE_URL}/chat/completions",
-        headers={"Authorization": f"Bearer {NVIDIA_API_KEY}", "Content-Type": "application/json"},
-        json={"model": MODEL, "max_tokens": 1024, "temperature": 0.1,
-              "tools": TOOLS, "tool_choice": "auto",
-              "messages": [
-                  {"role": "system", "content": SYSTEM_PROMPT},
-                  {"role": "user",   "content": f"Process this {doc_type} document:\n\n{content}"}
-              ]},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    choice = resp.json()["choices"][0]["message"]
-    return choice.get("content") or "", choice.get("tool_calls") or []
+def process_document(doc_type, content, retries=2):
+    payload = {
+        "model": MODEL, "max_tokens": 1024, "temperature": 0.1,
+        "tools": TOOLS, "tool_choice": "auto",
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user",   "content": f"Process this {doc_type} document:\n\n{content}"}
+        ]
+    }
+    for attempt in range(retries + 1):
+        try:
+            resp = requests.post(
+                f"{NVIDIA_BASE_URL}/chat/completions",
+                headers={"Authorization": f"Bearer {NVIDIA_API_KEY}",
+                         "Content-Type": "application/json"},
+                json=payload,
+                timeout=60,
+            )
+            resp.raise_for_status()
+            choice = resp.json()["choices"][0]["message"]
+            return choice.get("content") or "", choice.get("tool_calls") or []
+        except requests.exceptions.Timeout:
+            if attempt < retries:
+                console.print(f"[dim]   Timeout — retrying ({attempt + 1}/{retries})...[/dim]")
+                time.sleep(2)
+            else:
+                raise
 
 
 def execute_tool(tool_call):
