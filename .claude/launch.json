@@ -2,15 +2,15 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "Monitor Bridge (Act 1)",
-      "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd '/Users/habeeba.mansour/Library/CloudStorage/OneDrive-AHEADInc(Production)/Documents/GitHub/nemoclaw-finshield' && uvicorn monitor.bridge:app --host 0.0.0.0 --port 8765"],
+      "name": "Monitor Bridge",
+      "runtimeExecutable": "uvicorn",
+      "runtimeArgs": ["monitor.bridge:app", "--host", "0.0.0.0", "--port", "8765"],
       "port": 8765
     },
     {
-      "name": "Attacker Server (Act 1)",
-      "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd '/Users/habeeba.mansour/Library/CloudStorage/OneDrive-AHEADInc(Production)/Documents/GitHub/nemoclaw-finshield' && uvicorn attacker.server:app --host 127.0.0.1 --port 9999"],
+      "name": "Attacker Server",
+      "runtimeExecutable": "uvicorn",
+      "runtimeArgs": ["attacker.server:app", "--host", "0.0.0.0", "--port", "9999"],
       "port": 9999
     }
   ]
